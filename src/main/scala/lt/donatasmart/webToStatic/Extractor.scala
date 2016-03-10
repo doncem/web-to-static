@@ -6,6 +6,8 @@ import scala.io.Source
 
 class Extractor(domain: String, staticFolder: String) extends LazyLogging {
 
+  val LIMIT: Int = 100
+
   logger.info(s"Web extractor started. Preparing '$staticFolder' for extraction")
   val root = s"static/$staticFolder"
   val staticWeb = new StaticWeb(root)
@@ -26,10 +28,12 @@ class Extractor(domain: String, staticFolder: String) extends LazyLogging {
     val (imagesToIterate, imagesToAppend) = resources.images.filterNot(extracted.contains).duplicate
     val linksExtracted = extracted ++ linksToAppend ++ headLinksToAppend ++ scriptsToAppend ++ imagesToAppend
 
-    linksToIterate.foreach(link => extract(domain + link, "index", linksExtracted))
-    headLinksToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
-    scriptsToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
-    imagesToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
+    if (linksExtracted.length < LIMIT) {
+      linksToIterate.foreach(link => extract(domain + link, "index", linksExtracted))
+      headLinksToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
+      scriptsToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
+      imagesToIterate.foreach(link => extract(domain + link, "resource", linksExtracted))
+    }
   }
 
   extract(domain, "index")
