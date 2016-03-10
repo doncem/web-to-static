@@ -13,6 +13,38 @@ import sys.process._
 class StaticWeb(root: String) extends LazyLogging {
 
   case class Resources(headLinks: Iterator[String], links: Iterator[String], scripts: Iterator[String], images: Iterator[String])
+  object Resources {
+    private def getLinks(contents: String) = {
+      val r = """<a href="(.*?)"""".r
+      r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
+        m.startsWith("http") || m.startsWith("//") || m.startsWith("#") || m.startsWith("mailto") || m.startsWith("javascript")
+      )
+    }
+
+    private def getHeadLinks(contents: String) = {
+      val r = """<link[^>]*href="(.*?)"""".r
+      r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
+        m.startsWith("http") || m.startsWith("//")
+      )
+    }
+
+    private def getScripts(contents: String) = {
+      val r = """<script[^>]*src="(.*?)"""".r
+      r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
+        m.startsWith("http") || m.startsWith("//")
+      )
+    }
+
+    private def getImages(contents: String) = {
+      val r = """<img[^>]*src="(.*?)"""".r
+      r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
+        m.startsWith("http") || m.startsWith("//")
+      )
+    }
+
+    def apply(): Resources = Resources(Iterator.empty, Iterator.empty, Iterator.empty, Iterator.empty)
+    def apply(contents: String): Resources = Resources(getHeadLinks(contents), getLinks(contents), getScripts(contents), getImages(contents))
+  }
 
   def getPath(path: String = ""): Path = FileSystems.getDefault.getPath(s"$root/$path")
 
@@ -39,53 +71,27 @@ class StaticWeb(root: String) extends LazyLogging {
     }
   }
 
-  private def getLinks(contents: String) = {
-    val r = """<a href="(.*?)"""".r
-    r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
-      m.startsWith("http") || m.startsWith("//") || m.startsWith("#") || m.startsWith("mailto") || m.startsWith("javascript")
-    )
-  }
+  def saveStatic(url: String, domain: String): Resources = {
+    val file = getPath {
+      val f = url.replace(domain + "/", "")
+      Option(f.lastIndexOf("?")).filter(_ > 0).map(index => f.substring(0, index)).getOrElse(f)
+    }
 
-  private def getHeadLinks(contents: String) = {
-    val r = """<link[^>]*href="(.*?)"""".r
-    r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
-      m.startsWith("http") || m.startsWith("//")
-    )
-  }
-
-  private def getScripts(contents: String) = {
-    val r = """<script[^>]*src="(.*?)"""".r
-    r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
-      m.startsWith("http") || m.startsWith("//")
-    )
-  }
-
-  private def getImages(contents: String) = {
-    val r = """<img[^>]*src="(.*?)"""".r
-    r.findAllMatchIn(contents).map(_.group(1)).filterNot(m =>
-      m.startsWith("http") || m.startsWith("//")
-    )
-  }
-
-  def saveStatic(url: String, domain: String) = {
-    val file = getPath(url.replace(domain + "/", ""))
     if (!Files.exists(file)) {
       logger.debug(s"Saving static file: ${file.toFile.getAbsolutePath}")
       Try(Files.createDirectories(file.getParent))
       new URL(url) #> Files.createFile(file).toFile !!
     }
-    Resources(Iterator.empty, Iterator.empty, Iterator.empty, Iterator.empty)
+    Resources()
   }
 
-  def saveIndex(path: String, contents: String) = {
+  def saveIndex(path: String, contents: String): Resources = {
     val file = getPath(s"$path/index.html".replace("//", "/"))
-    if (!Files.exists(file)) {
+    if (Files.exists(file)) Resources() else {
       logger.debug(s"Saving index file: ${file.toFile.getAbsolutePath}")
       Try(Files.createDirectories(getPath(path)))
       new PrintWriter(file.toFile) { write(contents); close() }
-      Resources(getHeadLinks(contents), getLinks(contents), getScripts(contents), getImages(contents))
-    } else {
-      Resources(Iterator.empty, Iterator.empty, Iterator.empty, Iterator.empty)
+      Resources(contents)
     }
   }
 }
