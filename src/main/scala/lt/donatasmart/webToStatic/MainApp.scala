@@ -12,7 +12,9 @@ object MainApp extends App {
 
   args.headOption match {
     case Some("help") => help()
-    case Some(arg) => new Extractor(arg, args.tail.headOption.getOrElse("_tmp"))
-    case _ => throw new Exception("Missing at least one parameter")
+    case Some(arg) =>
+      new Extractor(arg, args.tail.headOption.getOrElse("_tmp"))
+//      sys.exit()
+    case _ => sys.error("Missing at least one parameter")
   }
 }

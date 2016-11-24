@@ -1,5 +1,7 @@
 package lt.donatasmart.webToStatic
 
+import java.io.IOException
+
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.io.Source
@@ -17,10 +19,19 @@ class Extractor(domain: String, staticFolder: String) extends LazyLogging {
 
   def extract(url: String, `type`: String, extracted: Vector[String] = Vector("")): Unit = {
     logger.debug(s"Getting $url")
+
     val resources = if (`type` == "resource") {
       staticWeb.saveStatic(url, domain)
     } else {
-      staticWeb.saveIndex(url.replace(domain, ""), getPage(url))
+      try {
+        val pageContents = getPage(url).replace(domain, "")
+
+        staticWeb.saveIndex(url.replace(domain, ""), pageContents)
+      } catch {
+        case e: IOException =>
+          logger.error(s"Could not get page contents from $url: {}", e.getMessage)
+          staticWeb.Resources()
+      }
     }
     val (linksToIterate, linksToAppend) = resources.links.filterNot(extracted.contains).duplicate
     val (headLinksToIterate, headLinksToAppend) = resources.headLinks.filterNot(extracted.contains).duplicate
